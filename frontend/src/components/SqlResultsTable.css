@@ -1,0 +1,95 @@
+.sql-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.sql-block {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.85rem;
+}
+
+.sql-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.6rem;
+}
+
+.sql-status {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+}
+
+.sql-status-success {
+  background: rgba(45, 212, 168, 0.15);
+  color: var(--accent);
+}
+
+.sql-status-rejected {
+  background: rgba(239, 100, 97, 0.15);
+  color: var(--danger);
+}
+
+.sql-count {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.sql-query {
+  margin: 0 0 0.75rem;
+  padding: 0.65rem 0.75rem;
+  background: #0a0f14;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #a8d4c4;
+}
+
+.sql-error {
+  color: var(--danger);
+  font-size: 0.85rem;
+  margin: 0 0 0.5rem;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+th,
+td {
+  padding: 0.5rem 0.65rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+th {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+tbody tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.section-empty {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0;
+}
