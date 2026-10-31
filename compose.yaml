@@ -1,0 +1,39 @@
+
+services:
+  backend:
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      ESG_API_KEY: ${ESG_API_KEY:?Set ESG_API_KEY in .env}
+      HISTORY_DB_PATH: /data/analysis_history.sqlite3
+      DATABASE_PATH: /data/portfolio.sqlite3
+      CHROMA_PATH: /data/chroma
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}
+      CHROMA_COLLECTION: ${CHROMA_COLLECTION:-esg_compliance_standards}
+      HUMAN_REVIEW_THRESHOLD: ${HUMAN_REVIEW_THRESHOLD:-0.82}
+    volumes:
+      - esg_data:/data
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE: ""
+    ports:
+      - "8081:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  esg_data:

@@ -1,83 +1,32 @@
-.loading-state {
+.results-panel {
+  min-width: 0;
+  width: 100%;
+}
+
+.results-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.results-subtitle {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.results-content {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 3rem 1rem;
-  color: var(--muted);
+  gap: 1.25rem;
+  min-width: 0;
 }
 
-.spinner {
-  width: 36px;
-  height: 36px;
-  border: 3px solid var(--border);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin-bottom: 1rem;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.result-section {
-  margin-bottom: 1.5rem;
-}
-
-.result-section:last-child {
-  margin-bottom: 0;
-}
-
-.result-section h3 {
-  margin: 0 0 0.75rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.recommendation {
+.results-content .result-section {
+  min-width: 0;
   margin: 0;
-  padding: 0.85rem 1rem;
-  background: var(--surface-2);
-  border-left: 3px solid var(--accent);
-  border-radius: 0 8px 8px 0;
-  font-size: 0.95rem;
-}
-
-.task-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-bottom: 0.5rem;
-}
-
-.task-tag {
-  padding: 0.3rem 0.65rem;
-  background: rgba(91, 159, 212, 0.12);
-  border: 1px solid rgba(91, 159, 212, 0.3);
-  border-radius: 999px;
-  font-size: 0.78rem;
-  color: var(--info);
-  text-transform: capitalize;
-}
-
-.routing-rationale {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--muted);
-}
-
-.web-context {
-  margin: 0;
-  padding: 0.75rem;
-  background: var(--surface-2);
-  border-radius: 8px;
-  font-size: 0.88rem;
-  color: var(--muted);
 }
 
 .result-actions {
@@ -85,37 +34,136 @@
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
-  justify-content: flex-end;
 }
 
-.btn-secondary {
-  background: var(--surface-2);
-  color: var(--text);
+.recommendation-section {
+  padding: 1.1rem 1.2rem;
   border: 1px solid var(--border);
-  padding: 0.42rem 0.65rem;
-  font-size: 0.78rem;
+  border-radius: 12px;
+  background: var(--surface-2);
 }
 
-.progress-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.45rem;
+.recommendation-section h3 {
+  margin-top: 0;
 }
 
-.progress-list li {
+.recommendation {
+  margin-bottom: 0;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.result-details {
   display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.6rem 0.7rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface-2);
-  text-transform: capitalize;
+  flex-direction: column;
+  gap: 0.65rem;
+  min-width: 0;
 }
 
-.progress-list small {
+.result-accordion {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.result-accordion summary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.95rem 1rem;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 600;
+}
+
+.result-accordion summary::-webkit-details-marker {
+  display: none;
+}
+
+.result-accordion summary::after {
+  content: "+";
+  margin-left: auto;
   color: var(--muted);
-  white-space: nowrap;
+  font-size: 1.2rem;
+  font-weight: 400;
+}
+
+.result-accordion[open] summary::after {
+  content: "−";
+}
+
+.result-accordion summary:hover {
+  background: var(--surface-2);
+}
+
+.accordion-hint {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+.accordion-content {
+  min-width: 0;
+  padding: 1rem;
+  border-top: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.accordion-content > :first-child {
+  margin-top: 0;
+}
+
+.accordion-content > :last-child {
+  margin-bottom: 0;
+}
+
+.accordion-content table {
+  width: 100%;
+  max-width: 100%;
+}
+
+.routing-rationale,
+.web-context {
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.task-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.task-tag {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .results-header {
+    align-items: flex-start;
+  }
+
+  .result-actions {
+    width: 100%;
+  }
+
+  .result-actions button {
+    flex: 1;
+  }
+
+  .result-accordion summary {
+    padding: 0.85rem;
+  }
+
+  .accordion-content {
+    padding: 0.85rem;
+  }
+
+  .accordion-hint {
+    display: none;
+  }
 }

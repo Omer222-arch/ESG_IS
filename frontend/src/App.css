@@ -1,24 +1,28 @@
 .app {
-  max-width: 1200px;
+  width: min(100% - 2.5rem, 1440px);
   margin: 0 auto;
-  padding: 1.5rem 1.25rem 3rem;
+  padding: 1.5rem 0 3rem;
 }
 
 .layout {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.25rem;
+  align-items: start;
+  width: 100%;
 }
 
 .sidebar-stack {
   display: grid;
   gap: 1rem;
+  min-width: 0;
 }
 
-@media (min-width: 960px) {
-  .layout {
-    grid-template-columns: 380px 1fr;
-    align-items: start;
-  }
+.layout > *,
+.sidebar-stack > *,
+.panel {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .panel {
@@ -26,6 +30,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
+  overflow: hidden;
 }
 
 .panel-header {
@@ -46,6 +51,7 @@
 
 .panel-body {
   padding: 1.25rem;
+  min-width: 0;
 }
 
 .empty-state {
@@ -55,9 +61,8 @@
 }
 
 .empty-state p {
-  margin: 0.5rem 0 0;
+  margin: 0.5rem auto 0;
   max-width: 420px;
-  margin-inline: auto;
 }
 
 .error-banner {
@@ -78,6 +83,8 @@
 }
 
 .history-item {
+  width: 100%;
+  min-width: 0;
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text);
@@ -101,13 +108,118 @@
   text-transform: capitalize;
 }
 
+/* Two distinct panels on desktop */
+@media (min-width: 960px) {
+  .layout {
+    grid-template-columns: minmax(300px, 0.78fr) minmax(0, 1.65fr);
+    gap: 1.5rem;
+  }
+
+  .sidebar-stack {
+    position: sticky;
+    top: 1rem;
+    align-self: start;
+  }
+}
+
+/* Give the results panel more room on medium-sized screens */
+@media (min-width: 960px) and (max-width: 1150px) {
+  .layout {
+    grid-template-columns: minmax(280px, 0.85fr) minmax(0, 1.4fr);
+    gap: 1rem;
+  }
+
+  .panel-header,
+  .panel-body {
+    padding: 1rem;
+  }
+}
+
 @media (max-width: 640px) {
   .app {
-    padding: 1rem 0.8rem 2rem;
+    width: calc(100% - 1.5rem);
+    padding: 1rem 0 2rem;
+  }
+
+  .layout {
+    gap: 1rem;
   }
 
   .panel-header {
     align-items: flex-start;
     flex-direction: column;
   }
+
+  .panel-body {
+    padding: 1rem;
+  }
+
+  .sidebar-stack {
+    position: static;
+  }
+}
+
+.admin-login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.admin-login-card {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 32px;
+  border: 1px solid var(--border-color, #333);
+  border-radius: 16px;
+  background: var(--panel-bg, #171717);
+}
+
+.admin-login-card h1 {
+  margin: 0;
+}
+
+.admin-login-eyebrow {
+  font-size: 12px;
+  letter-spacing: 2px;
+  font-weight: 700;
+}
+
+.admin-login-description {
+  line-height: 1.6;
+  opacity: 0.8;
+}
+
+.admin-login-card input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.admin-login-card button {
+  padding: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.admin-login-card button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.admin-login-error {
+  color: #ff7777;
+}
+
+.admin-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 8px 20px;
 }

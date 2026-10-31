@@ -2,10 +2,10 @@ import { type FormEvent } from "react";
 import "./QueryForm.css";
 
 const EXAMPLE_QUERIES = [
-  "Show portfolio allocations and SASB carbon compliance",
-  "Compare revenue and capex across companies",
-  "ESG governance and diversity disclosure requirements",
-  "What are the portfolio weights for ESG Core?",
+  "Explain this agreement in simple language.",
+  "What are my main responsibilities under this document?",
+  "Explain the termination clause and notice period.",
+  "Are there any fees, penalties, or renewal conditions?",
 ];
 
 interface QueryFormProps {
@@ -17,8 +17,11 @@ export function QueryForm({ loading, onSubmit }: QueryFormProps) {
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
-    const query = (form.elements.namedItem("query") as HTMLTextAreaElement).value.trim();
-    const liveWeb = (form.elements.namedItem("liveWeb") as HTMLTextAreaElement).value.trim();
+    const query =
+      (form.elements.namedItem("query") as HTMLTextAreaElement | null)?.value.trim() ?? "";
+    const liveWeb =
+      (form.elements.namedItem("liveWeb") as HTMLTextAreaElement | null)?.value.trim() ?? "";
+
     if (query) onSubmit(query, liveWeb);
   };
 
@@ -35,52 +38,50 @@ export function QueryForm({ loading, onSubmit }: QueryFormProps) {
       <div className="panel-header">
         <h2>New Analysis</h2>
       </div>
+
       <div className="panel-body">
         <form onSubmit={handleSubmit}>
           <label className="field-label" htmlFor="query">
-            Portfolio / ESG query
+            What would you like to understand?
           </label>
           <textarea
             id="query"
             name="query"
             rows={4}
-            placeholder="e.g. Show portfolio allocations and SASB carbon compliance for utilities sector"
+            placeholder="Ask about a clause, obligation, deadline, fee, or condition..."
             required
             disabled={loading}
           />
 
           <label className="field-label" htmlFor="liveWeb">
-            Live web context (optional)
+            Additional context (optional)
           </label>
           <textarea
             id="liveWeb"
             name="liveWeb"
             rows={2}
-            placeholder="Optional external context to include in synthesis"
+            placeholder="Add context that may help explain your question..."
             disabled={loading}
           />
 
-          <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? "Running agents..." : "Run analysis"}
-          </button>
-        </form>
-
-        <div className="examples">
-          <span className="examples-label">Quick examples</span>
-          <div className="example-chips">
-            {EXAMPLE_QUERIES.map((q) => (
+          <div className="example-queries">
+            {EXAMPLE_QUERIES.map((example) => (
               <button
-                key={q}
+                key={example}
                 type="button"
-                className="chip"
-                onClick={() => fillExample(q)}
+                className="example-query"
+                onClick={() => fillExample(example)}
                 disabled={loading}
               >
-                {q}
+                {example}
               </button>
             ))}
           </div>
-        </div>
+
+          <button type="submit" className="btn btn-primary" disabled={loading}>
+            {loading ? "Preparing your explanation..." : "Explain in simple language"}
+          </button>
+        </form>
       </div>
     </div>
   );

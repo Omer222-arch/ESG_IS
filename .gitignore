@@ -1,0 +1,78 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+secrets/
+credentials/
+*.pem
+*.key
+
+# Databases and persistent data
+*.db
+*.sqlite
+*.sqlite3
+*.sql
+data/
+chroma/
+.chroma_db/
+
+# Frontend dependencies and build output
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/node_modules/.tmp/
+*.tsbuildinfo
+
+# Deployment archives and backups
+*.tar
+*.tar.gz
+*.bak
+*.backup
+aws-deploy/
+
+# Temporary files and browser profiles
+tmp/
+temp/
+output/pdf/
+*.pdf
+
+# Logs and operating-system files
+*.log
+.DS_Store
+Thumbs.db
+
+# Local test and debug artifacts
+request.json
+stream_request.json
+structure.txt
+step12-sql.*
+/server_route_snippet.py
+/inspect_cookie.py
+/inspect_history_db.py
+/test_proxy_login.py
+/tatus --short
+
+# Unrelated personal job-search utilities
+/build_ai_jobs_pdf.py
+/create_ai_jobs_pdf*.py
+/scripts/make_ai_jobs_pdf.py
+
+# IDE files
+.vscode/
+.idea/
+# Local project archives
+*.zip
+# Temporary ZIP inspection folders
+zip_check_mvp/
+zip_check_react/
+
+# Local ZIP archives
+*.zip

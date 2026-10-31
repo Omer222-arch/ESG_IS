@@ -1,26 +1,23 @@
+
 FROM python:3.11-slim
 
-RUN apt-get update && apt-get install -y \
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-COPY . /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
 
-# Install dependencies + static-files support
-RUN pip install --no-cache-dir \
-    uvicorn \
-    fastapi \
-    pydantic \
-    langchain-core \
-    langchain-openai \
-    langgraph \
-    langchain-chroma \
-    chromadb \
-    pandas \
-    aiofiles
+COPY . .
+
+RUN mkdir -p /data
 
 EXPOSE 8000
 

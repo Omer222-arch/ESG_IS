@@ -7,6 +7,8 @@ import {
   listHistory,
   resumeAnalysis,
 } from "./api/client";
+import { AdminLogin } from "./components/AdminLogin";
+import { DocumentAssessmentPanel } from "./components/DocumentAssessmentPanel";
 import type { AnalyzeResponse, HistoryItem, ProgressEvent } from "./types";
 import { Header } from "./components/Header";
 import { QueryForm } from "./components/QueryForm";
@@ -37,6 +39,8 @@ function toHistoryItem(result: AnalyzeResponse): HistoryItem {
 }
 
 export default function App() {
+  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+  const [authChecking, setAuthChecking] = useState(true);
   const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
   const [resumeLoading, setResumeLoading] = useState(false);
@@ -47,6 +51,54 @@ export default function App() {
   const [theme, setTheme] = useState<"dark" | "light">(
     (localStorage.getItem(THEME_KEY) as "dark" | "light" | null) || "dark",
   );
+
+  const checkSession = useCallback(async () => {
+    try {
+      const response = await fetch("/api/auth/session", {
+        credentials: "include",
+      });
+
+      setAuthenticated(response.ok);
+    } catch {
+      setAuthenticated(false);
+    } finally {
+      setAuthChecking(false);
+    }
+  }, []);
+
+  const handleLogout = useCallback(async () => {
+    try {
+      const csrfToken = document.cookie
+        .split("; ")
+        .find((cookie) => cookie.startsWith("esg_csrf="))
+        ?.split("=")
+        .slice(1)
+        .join("=");
+
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+        headers: csrfToken
+          ? { "X-CSRF-Token": decodeURIComponent(csrfToken) }
+          : {},
+      });
+
+      if (!response.ok) {
+        throw new Error("Logout failed. Please try again.");
+      }
+
+      setAuthenticated(false);
+      setResult(null);
+      setProgress([]);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Logout failed.");
+    }
+  }, []);
+
+  useEffect(() => {
+    void checkSession();
+  }, [checkSession]);
 
   const mergedHistory = useMemo(() => {
     const byId = new Map<string, HistoryItem>();
@@ -93,11 +145,17 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
-    pollHealth();
-    refreshHistory();
-    const interval = setInterval(pollHealth, 15000);
+    if (authenticated !== true) return;
+
+    void pollHealth();
+    void refreshHistory();
+
+    const interval = setInterval(() => {
+      void pollHealth();
+    }, 15000);
+
     return () => clearInterval(interval);
-  }, [pollHealth, refreshHistory]);
+  }, [authenticated, pollHealth, refreshHistory]);
 
   const handleAnalyze = async (query: string, liveWebContext: string) => {
     setLoading(true);
@@ -155,24 +213,59 @@ export default function App() {
     }
   };
 
+  if (authChecking || authenticated === null) {
+    return (
+      <main className="admin-login-page">
+        <p>Checking admin session…</p>
+      </main>
+    );
+  }
+
+  if (!authenticated) {
+    return <AdminLogin onLogin={checkSession} />;
+  }
+
   return (
     <div className="app">
       <Header
         backendOnline={backendOnline}
         theme={theme}
-        onToggleTheme={() => setTheme((value) => (value === "dark" ? "light" : "dark"))}
+        onToggleTheme={() =>
+          setTheme((value) => (value === "dark" ? "light" : "dark"))
+        }
       />
+
+      <div className="admin-toolbar">
+        <span>Admin session active</span>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={() => void handleLogout()}
+        >
+          Sign out
+        </button>
+      </div>
+
       {error && <div className="error-banner">{error}</div>}
+
+      <DocumentAssessmentPanel />
+
       <div className="layout">
         <aside className="sidebar-stack">
           <QueryForm loading={loading} onSubmit={handleAnalyze} />
+
           <div className="panel history-panel">
             <div className="panel-header">
               <h2>Analysis History</h2>
-              <button type="button" className="btn btn-secondary" onClick={refreshHistory}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={refreshHistory}
+              >
                 Sync
               </button>
             </div>
+
             <div className="panel-body history-list">
               {mergedHistory.length === 0 ? (
                 <p className="history-empty">No previous runs yet.</p>
@@ -192,6 +285,7 @@ export default function App() {
             </div>
           </div>
         </aside>
+
         <ResultsPanel
           result={result}
           loading={loading}

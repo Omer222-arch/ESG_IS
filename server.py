@@ -7,21 +7,114 @@ import os
 import sqlite3
 import time
 import uuid
+import hmac
+import hashlib
+import sys
+import types
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
+from dotenv import load_dotenv
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response
+ROOT_DIR = Path(__file__).resolve().parent
+load_dotenv(ROOT_DIR / ".env", override=True)
+
+from fastapi import Cookie, Request
+from fastapi.responses import JSONResponse
+
+try:
+    from src import auth
+except ModuleNotFoundError as exc:
+    if exc.name != "itsdangerous":
+        raise
+
+    # Provide the small timed-token API used by src.auth if itsdangerous is not
+    # installed. Tokens are JSON-encoded, HMAC-signed, and optionally expiring.
+    class _BadSignature(Exception):
+        pass
+
+    class _URLSafeTimedSerializer:
+        def __init__(self, secret_key: str | bytes, salt: str = "itsdangerous", **_: Any) -> None:
+            self.secret_key = secret_key.encode() if isinstance(secret_key, str) else secret_key
+            self.salt = salt.encode() if isinstance(salt, str) else salt
+
+        @staticmethod
+        def _encode(value: bytes) -> str:
+            return base64.urlsafe_b64encode(value).rstrip(b"=").decode("ascii")
+
+        @staticmethod
+        def _decode(value: str) -> bytes:
+            return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+
+        def _signature(self, value: bytes) -> bytes:
+            key = hmac.new(self.secret_key, self.salt, hashlib.sha256).digest()
+            return hmac.new(key, value, hashlib.sha256).digest()
+
+        def dumps(self, obj: Any, **_: Any) -> str:
+            payload = self._encode(json.dumps(obj, separators=(",", ":")).encode("utf-8"))
+            signed = f"{payload}.{int(time.time())}".encode("ascii")
+            return signed.decode("ascii") + "." + self._encode(self._signature(signed))
+
+        def loads(self, token: str | bytes, max_age: int | None = None, **_: Any) -> Any:
+            try:
+                raw = token.decode("ascii") if isinstance(token, bytes) else token
+                payload, issued, signature = raw.split(".")
+                issued_at = int(issued)
+                signed = f"{payload}.{issued_at}".encode("ascii")
+                if not hmac.compare_digest(self._signature(signed), self._decode(signature)):
+                    raise ValueError("Invalid signature")
+                if max_age is not None and time.time() - issued_at > max_age:
+                    raise ValueError("Token expired")
+                return json.loads(self._decode(payload))
+            except Exception as error:
+                raise _BadSignature("Invalid or expired token") from error
+
+    _itsdangerous = types.ModuleType("itsdangerous")
+    _itsdangerous.BadSignature = _BadSignature
+    _itsdangerous.URLSafeTimedSerializer = _URLSafeTimedSerializer
+    sys.modules["itsdangerous"] = _itsdangerous
+    from src import auth
+from fastapi import (
+    Depends, FastAPI, Header, HTTPException, Query, Response,
+    File, UploadFile,
+)
+try:
+    from src.document_assessment import assess_esg_document
+except ModuleNotFoundError as exc:
+    if exc.name != "pypdf":
+        raise
+    assess_esg_document = None
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from src.engine import resume_analysis, run_analysis, run_analysis_events
+try:
+    from src.engine import resume_analysis, run_analysis, run_analysis_events
+except ModuleNotFoundError as exc:
+    if exc.name != "langgraph":
+        raise
+
+    _ENGINE_UNAVAILABLE = "Analysis is unavailable because the langgraph package is not installed."
+
+    async def run_analysis(**_: Any) -> dict[str, Any]:
+        raise HTTPException(status_code=503, detail=_ENGINE_UNAVAILABLE)
+
+    async def resume_analysis(**_: Any) -> dict[str, Any]:
+        raise HTTPException(status_code=503, detail=_ENGINE_UNAVAILABLE)
+
+    async def run_analysis_events(**_: Any):
+        raise HTTPException(status_code=503, detail=_ENGINE_UNAVAILABLE)
+        yield {}
 
 APP_DIR = Path(__file__).resolve().parent
-HISTORY_DB = APP_DIR / "analysis_history.sqlite3"
-API_KEY = os.getenv("ESG_API_KEY", "dev-local-key")
+HISTORY_DB = Path(
+    os.getenv(
+        "HISTORY_DB_PATH",
+        str(APP_DIR / "analysis_history.sqlite3"),
+    )
+)
+API_KEY = os.getenv("ESG_API_KEY", "")
 
 
 class HistoryStore:
@@ -172,24 +265,153 @@ class AnalyzeRequest(BaseModel):
     live_web_context: str = Field(default="")
     thread_id: str | None = Field(default=None)
 
-
 class ResumeRequest(BaseModel):
     thread_id: str = Field(..., min_length=1)
-    human_approved: bool = Field(default=True)
+    human_approved: bool = Field(default=False)
+
+class LoginRequest(BaseModel):
+    password: str = Field(..., min_length=1, max_length=256)
+
+
+@app.post("/api/auth/login")
+async def login(
+    request: Request,
+    body: LoginRequest,
+    response: Response,
+) -> dict[str, bool]:
+    client_ip = request.client.host if request.client else "unknown"
+
+    if not auth.login_allowed(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many login attempts. Try again in five minutes.",
+        )
+
+    if not auth.verify_admin_password(body.password):
+        auth.record_login_failure(client_ip)
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    auth.clear_login_failures(client_ip)
+
+    session_token = auth.create_session()
+    csrf_token = auth.create_csrf_token()
+
+    response.set_cookie(
+        key=auth.SESSION_COOKIE,
+        value=session_token,
+        httponly=True,
+        secure=os.getenv("COOKIE_SECURE", "false").lower() == "true",
+        samesite="strict",
+        max_age=auth.SESSION_MAX_AGE,
+        path="/",
+    )
+    response.set_cookie(
+        key=auth.CSRF_COOKIE,
+        value=csrf_token,
+        httponly=False,
+        secure=os.getenv("COOKIE_SECURE", "false").lower() == "true",
+        samesite="strict",
+        max_age=auth.SESSION_MAX_AGE,
+        path="/",
+    )
+
+    return {"authenticated": True}
+
+
+@app.get("/api/auth/session")
+async def check_session(
+    esg_session: str | None = Cookie(default=None, alias=auth.SESSION_COOKIE),
+) -> dict[str, bool]:
+    if not auth.validate_session(esg_session):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return {"authenticated": True}
+
+
+def require_logout_csrf(
+    esg_session: str | None = Cookie(
+        default=None, alias=auth.SESSION_COOKIE
+    ),
+    esg_csrf: str | None = Cookie(
+        default=None, alias=auth.CSRF_COOKIE
+    ),
+    x_csrf_token: str | None = Header(default=None),
+) -> None:
+    if not auth.validate_session(esg_session):
+        raise HTTPException(
+            status_code=401,
+            detail="Not authenticated",
+        )
+
+    if not auth.valid_csrf_token(esg_csrf, x_csrf_token):
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid or missing CSRF token",
+        )
+
+
+@app.post(
+    "/api/auth/logout",
+    dependencies=[Depends(require_logout_csrf)],
+)
+async def logout(
+    response: Response,
+    esg_session: str | None = Cookie(
+        default=None, alias=auth.SESSION_COOKIE
+    ),
+) -> dict[str, bool]:
+    auth.revoke_session(esg_session)
+    response.delete_cookie(
+        key=auth.SESSION_COOKIE,
+        path="/",
+        httponly=True,
+        secure=os.getenv("COOKIE_SECURE", "false").lower() == "true",
+        samesite="strict",
+    )
+    response.delete_cookie(
+        key=auth.CSRF_COOKIE,
+        path="/",
+        secure=os.getenv("COOKIE_SECURE", "false").lower() == "true",
+        samesite="strict",
+    )
+    return {"authenticated": False}
 
 
 def require_api_key(
+    request: Request,
     x_api_key: str | None = Header(default=None),
     authorization: str | None = Header(default=None),
+    esg_session: str | None = Cookie(
+        default=None, alias=auth.SESSION_COOKIE
+    ),
+    esg_csrf: str | None = Cookie(
+        default=None, alias=auth.CSRF_COOKIE
+    ),
+    x_csrf_token: str | None = Header(default=None),
 ) -> None:
     bearer = ""
     if authorization and authorization.lower().startswith("bearer "):
         bearer = authorization.split(" ", 1)[1].strip()
+
     provided = x_api_key or bearer
-    if API_KEY and provided != API_KEY:
-        raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
+    # Preserve API-key authentication for trusted clients.
+    if API_KEY and provided and hmac.compare_digest(provided, API_KEY):
+        return
 
+    # Browser session authentication.
+    if auth.validate_session(esg_session):
+        if request.method not in {"GET", "HEAD", "OPTIONS"}:
+            if not auth.valid_csrf_token(esg_csrf, x_csrf_token):
+                raise HTTPException(
+                    status_code=403,
+                    detail="Invalid or missing CSRF token",
+                )
+        return
+
+    raise HTTPException(
+        status_code=401,
+        detail="Invalid or missing authentication",
+    )
 def _json_line(payload: dict[str, Any]) -> bytes:
     return f"data: {json.dumps(payload, separators=(',', ':'))}\n\n".encode("utf-8")
 
@@ -231,8 +453,70 @@ def _pdf_bytes(title: str, payload: dict[str, Any]) -> bytes:
     )
     return bytes(out)
 
+@app.post(
+    "/api/v1/esg/document-assessment",
+    dependencies=[Depends(require_api_key)],
+)
+async def document_assessment(file: UploadFile = File(...)) -> dict[str, Any]:
+    """
+    Screen a PDF for ESG disclosure evidence.
+    This is a document screening aid, not a compliance certification.
+    """
+    if assess_esg_document is None:
+        raise HTTPException(
+            status_code=503,
+            detail="PDF assessment is unavailable because the pypdf package is not installed.",
+        )
 
-@app.get("/health")
+    max_size = 20 * 1024 * 1024  # 20 MB
+
+    filename = file.filename or "uploaded_document.pdf"
+
+    if not filename.lower().endswith(".pdf"):
+        raise HTTPException(
+            status_code=400,
+            detail="Please upload a PDF file.",
+        )
+
+    try:
+        pdf_bytes = await file.read(max_size + 1)
+
+        if not pdf_bytes:
+            raise HTTPException(
+                status_code=400,
+                detail="The uploaded PDF is empty.",
+            )
+
+        if len(pdf_bytes) > max_size:
+            raise HTTPException(
+                status_code=413,
+                detail="PDF exceeds the 20 MB upload limit.",
+            )
+
+        result = await asyncio.to_thread(
+            assess_esg_document,
+            filename,
+            pdf_bytes,
+        )
+
+        return result
+
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:
+        print(f"Document assessment failed: {type(exc).__name__}: {exc}")
+        raise HTTPException(
+            status_code=500,
+            detail="Document assessment failed. Check the backend terminal for details.",
+        ) from exc
+    finally:
+        await file.close()
+        @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
 
